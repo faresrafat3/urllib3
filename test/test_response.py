@@ -571,9 +571,26 @@ class TestResponse:
             print("OK")
             """)
         for env, expected in [(env_on, "OK"), (env_off, "OK")]:
+            # Run under coverage so the import-time branches above (including
+            # the env-gated raise ImportError lines) are recorded; a fresh
+            # interpreter is still required because urllib3 reads the env var
+            # only at import time.
+            cov_file = os.environ.get("COVERAGE_FILE", ".coverage")
+            cov_file += (
+                ".brotli_on" if "URLLIB3_DISABLE_BROTLI" in env else ".brotli_off"
+            )
+            run_env = {**env, "COVERAGE_FILE": cov_file}
+            wrapper = (
+                "import coverage; "
+                "c = coverage.Coverage(source=['urllib3']); "
+                "c.start(); "
+                "exec(%r); "
+                "c.stop(); "
+                "c.save()"
+            ) % script
             ret = subprocess.run(
-                [sys.executable, "-c", script],
-                env=env,
+                [sys.executable, "-c", wrapper],
+                env=run_env,
                 capture_output=True,
                 text=True,
                 timeout=60,
