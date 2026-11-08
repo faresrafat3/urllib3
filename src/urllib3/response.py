@@ -383,7 +383,17 @@ def _get_decoder(mode: str) -> ContentDecoder:
     if brotli is not None and mode == "br":
         return BrotliDecoder()
 
-    if HAS_ZSTD and mode == "zstd":
+    if mode == "zstd":
+        if not HAS_ZSTD:
+            # Zstd was requested but is unavailable (the 'zstandard' package
+            # is not installed). Silently feeding zstd bytes to the
+            # DeflateDecoder below would fail with a misleading zlib error;
+            # fail loudly with the real cause instead. Mirrors the brotli
+            # no-decoder case.
+            raise DecodeError(
+                "Zstd content-encoding is not available "
+                "(the 'zstandard' package is not installed)."
+            )
         return ZstdDecoder()
 
     return DeflateDecoder()

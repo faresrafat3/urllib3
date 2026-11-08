@@ -553,6 +553,15 @@ class TestResponse:
         r = HTTPResponse(fp, headers={"content-encoding": "zstd"})
         assert r.data == b"foo"
 
+    def test_zstd_missing_decoder_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # When the 'zstandard' package is unavailable, zstd content-encoding
+        # must fail loudly with DecodeError, mirroring the brotli no-decoder
+        # case -- not silently fall through to DeflateDecoder.
+        monkeypatch.setattr("urllib3.response.HAS_ZSTD", False)
+        fp = BytesIO(b"foo")
+        with pytest.raises(DecodeError, match="Zstd content-encoding is not available"):
+            HTTPResponse(fp, headers={"content-encoding": "zstd"})
+
     @onlyZstd()
     @pytest.mark.parametrize(
         "read_amt",
